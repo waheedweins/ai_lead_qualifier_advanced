@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from src.app.api.router import api_router
@@ -46,6 +47,15 @@ app = FastAPI(
         "Google Maps + Apollo scraping → Tavily enrichment → Gemini AI scoring → WhatsApp/Email outreach"
     ),
     lifespan=lifespan,
+)
+
+# CORS — allows the frontend (browser) to call this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],        # tighten to your S3/domain URL in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(api_router)
