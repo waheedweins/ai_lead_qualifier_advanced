@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from src.app.core.database import get_db
 from src.app.schemas.lead import LeadCreate, LeadResponse, LeadScoreResponse, LeadStatsResponse
@@ -23,6 +23,22 @@ def lead_stats(db: Session = Depends(get_db)):
 def list_leads(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """List all leads, newest first. Supports pagination via skip/limit."""
     return LeadService(db).list_all(skip=skip, limit=limit)
+
+
+@router.delete("/clear-test-leads/", status_code=status.HTTP_200_OK)
+def clear_test_leads(db: Session = Depends(get_db)):
+    """
+    DANGER ZONE: Clears all historical test leads from the database.
+    Use this to reset your workspace between campaigns.
+    """
+    try:
+        num_deleted = LeadService(db).clear_all_leads()
+        return {"message": f"Successfully cleared {num_deleted} test leads from the system."}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"Failed to clear database: {str(e)}"
+        )
 
 
 @router.get("/{lead_id}", response_model=LeadResponse)
