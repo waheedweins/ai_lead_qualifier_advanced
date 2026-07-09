@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from src.app.api.router import api_router
 from src.app.core.database import get_engine, Base
 from src.app.core.logging import logger
+from src.app.core.auth import auth_required  # 🛡️ Step 1: Import Auth0 dependency
 
 
 @asynccontextmanager
@@ -58,4 +59,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(api_router)
+# 🛡️ Step 2: Global Security Enforcement Attached
+# This locks down all sub-routes nested inside api_router automatically.
+app.include_router(api_router, dependencies=[Security(auth_required)])
