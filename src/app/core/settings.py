@@ -1,55 +1,92 @@
-import jwt
-import requests
-from fastapi import HTTPException, Security, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseSettings
+import logging
+import os
+from typing import Any, Dict
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Auth0Settings(BaseSettings):
-    AUTH0_DOMAIN: str = "your-tenant.auth0.com"
-    AUTH0_AUDIENCE: str = "https://api.yourdomain.com" # Your FastAPI API Identifier
+# Setup logger configuration
+logger = logging.getLogger("app_settings")
+logging.basicConfig(level=logging.INFO)
 
-auth0_config = Auth0Settings()
 
-class Auth0JWTBearer:
-    def __init__(self):
-        self.security = HTTPBearer()
-        # Fetch Auth0 public keys dynamically
-        jwks_url = f"https://{auth0_config.AUTH0_DOMAIN}/.well-known/jwks.json"
-        self.jwks = requests.get(jwks_url).json()
+class Settings(BaseSettings):
+    # Base Configurations
+    PROJECT_NAME: str = "Mission Impossible AI Lead Qualifier"
+    API_V1_STR: str = "/api/v1"
+    
+    # AWS Secrets Container Fallback Dict
+    AWS_SECRETS: Dict[str, Any] = {}
 
-    async def __call__(self, credentials: HTTPAuthorizationCredentials = Security(HTTPBearer())):
-        token = credentials.credentials
-        try:
-            # Extract token header to locate the correct public key
-            unverified_header = jwt.get_unverified_header(token)
-            rsa_key = {}
-            for key in self.jwks["keys"]:
-                if key["kid"] == unverified_header["kid"]:
-                    rsa_key = {
-                        "kty": key["kty"],
-                        "kid": key["kid"],
-                        "use": key["use"],
-                        "n": key["n"],
-                        "e": key["e"]
-                    }
-            
-            if rsa_key:
-                payload = jwt.decode(
-                    token,
-                    rsa_key,
-                    algorithms=["RS256"],
-                    audience=auth0_config.AUTH0_AUDIENCE,
-                    issuer=f"https://{auth0_config.AUTH0_DOMAIN}/"
-                )
-                return payload # Returns user information payload
-                
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid or expired token: {str(e)}"
-            )
+    # Target Structural Database Configurations
+    DATABASE_URL: str | None = None
+    
+    # Core API Keys and Routing Tolerances
+    GEMINI_API_KEY: str | None = None
+    APIFY_API_KEY: str | None = None
+    APOLLO_API_KEY: str | None = None
+    TAVILY_API_KEY: str | None = None
+    
+    # Auth0 Security Parameters
+    AUTH0_DOMAIN: str | None = None
+    AUTH0_AUDIENCE: str | None = None
+
+    # Load configuration settings from local workspace environment files
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8", 
+        extra="ignore"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def pre_load_settings(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Pre-load hook to check for live AWS Secrets Manager values
+        before parsing variables into configuration properties.
+        """
+        # AWS Secrets Manager parsing block can reside here if active
+        aws_secrets = data.get("AWS_SECRETS", {})
         
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unable to find appropriate key.")
+        # Pull properties sequentially out of AWS Context map if present
+        if aws_secrets:
+            data["DATABASE_URL"] = aws_secrets.get("DATABASE_URL")
+            data["GEMINI_API_KEY"] = aws_secrets.get("GEMINI_API_KEY")
+            data["APIFY_API_KEY"] = aws_secrets.get("APIFY_API_KEY")
+            data["APOLLO_API_KEY"] = aws_secrets.get("APOLLO_API_KEY")
+            data["TAVILY_API_KEY"] = aws_secrets.get("TAVILY_API_KEY")
+            data["AUTH0_DOMAIN"] = aws_secrets.get("AUTH0_DOMAIN")
+            data["AUTH0_AUDIENCE"] = aws_secrets.get("AUTH0_AUDIENCE")
+            
+        return data
 
-# Singleton dependency instance
-auth_required = Auth0JWTBearer()
+    def model_post_init(self, __context: Any) -> None:
+        """
+        Post-initialization validation to enforce local system .env fallbacks
+        if properties were missing from the production AWS context layer.
+        """
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = os.getenv("DATABASE_URL")
+        if not self.GEMINI_API_KEY:
+            self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+        if not self.APIFY_API_KEY:
+            self.APIFY_API_KEY = os.getenv("APIFY_API_KEY")
+        if not self.APOLLO_API_KEY:
+            self.APOLLO_API_KEY = os.getenv("APOLLO_API_KEY")
+        if not self.TAVILY_API_KEY:
+            self.TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+            
+        # Auth0 Fallback assignments
+        if not self.AUTH0_DOMAIN:
+            self.AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
+        if not self.AUTH0_AUDIENCE:
+            self.AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
+
+        logger.info(f"System settings loaded for project: {self.PROJECT_NAME}")
+        if self.AUTH0_DOMAIN:
+            logger.info(f"Identity protection active for tenant domain: {self.AUTH0_DOMAIN}")
+        else:
+            logger.warning("Auth0 configuration missing. Active routes are unprotected.")
+
+
+# Instantiate global workspace configurations settings singleton
+settings = Settings()
