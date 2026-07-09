@@ -44,10 +44,8 @@ class Settings(BaseSettings):
         Pre-load hook to check for live AWS Secrets Manager values
         before parsing variables into configuration properties.
         """
-        # AWS Secrets Manager parsing block can reside here if active
         aws_secrets = data.get("AWS_SECRETS", {})
         
-        # Pull properties sequentially out of AWS Context map if present
         if aws_secrets:
             data["DATABASE_URL"] = aws_secrets.get("DATABASE_URL")
             data["GEMINI_API_KEY"] = aws_secrets.get("GEMINI_API_KEY")
@@ -62,7 +60,7 @@ class Settings(BaseSettings):
     def model_post_init(self, __context: Any) -> None:
         """
         Post-initialization validation to enforce local system .env fallbacks
-        if properties were missing from the production AWS context layer.
+        and hardcoded defaults if variables are missing, empty, or string "None".
         """
         if not self.DATABASE_URL:
             self.DATABASE_URL = os.getenv("DATABASE_URL")
@@ -75,14 +73,15 @@ class Settings(BaseSettings):
         if not self.TAVILY_API_KEY:
             self.TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
             
-        # Auth0 Fallback assignments
-        if not self.AUTH0_DOMAIN:
-            self.AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
-        if not self.AUTH0_AUDIENCE:
-            self.AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
+        # 🛡️ Robust Auth0 Fallbacks (Cleans up spaces and "None" strings)
+        if not self.AUTH0_DOMAIN or str(self.AUTH0_DOMAIN).strip() in ("", "None"):
+            self.AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN") or "dev-jtsob5hrzmyn2s2t.us.auth0.com"
+            
+        if not self.AUTH0_AUDIENCE or str(self.AUTH0_AUDIENCE).strip() in ("", "None"):
+            self.AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE") or "https://dev-jtsob5hrzmyn2s2t.us.auth0.com/api/v2/"
 
         logger.info(f"System settings loaded for project: {self.PROJECT_NAME}")
-        if self.AUTH0_DOMAIN:
+        if self.AUTH0_DOMAIN and str(self.AUTH0_DOMAIN).strip() != "None":
             logger.info(f"Identity protection active for tenant domain: {self.AUTH0_DOMAIN}")
         else:
             logger.warning("Auth0 configuration missing. Active routes are unprotected.")
