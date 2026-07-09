@@ -2,32 +2,31 @@ import jwt
 import requests
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from src.app.core.settings import settings
+from src.app.core.settings import settings  # Securely imports your clean settings object
 
 class Auth0JWTBearer:
     def __init__(self):
         self.security = HTTPBearer()
-        # Points directly to your unified app configurations
         self.jwks_url = f"https://{settings.AUTH0_DOMAIN}/.well-known/jwks.json"
         self._jwks = None
 
     @property
     def jwks(self):
-        """Fetches Auth0 public keys with caching to minimize network overhead."""
+        """Lazy load JSON Web Key Sets from Auth0 to verify signatures."""
         if not self._jwks:
             try:
                 self._jwks = requests.get(self.jwks_url, timeout=5).json()
             except Exception as e:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to fetch authentication keys from provider: {str(e)}"
+                    detail=f"Failed to fetch verification keys from security provider: {str(e)}"
                 )
         return self._jwks
 
     async def __call__(self, credentials: HTTPAuthorizationCredentials = Security(HTTPBearer())):
-        # Fallback security bypass if configuration properties are empty locally
+        # Safe structural bypass check if configuration properties are empty
         if not settings.AUTH0_DOMAIN or not settings.AUTH0_AUDIENCE:
-            return {"info": "Auth0 skipped - Configuration properties missing from workspace environment."}
+            return {"info": "Auth0 security skipped - variables missing from runtime workspace environment."}
 
         token = credentials.credentials
         try:
@@ -56,13 +55,13 @@ class Auth0JWTBearer:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid or expired credentials token: {str(e)}"
+                detail=f"Invalid or expired security token credentials: {str(e)}"
             )
         
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Public key matching signature could not be verified."
+            detail="Public signatures could not be verified against authentication keys."
         )
 
-# Global singleton dependency instance
+# Global authorization dependency initialization hook
 auth_required = Auth0JWTBearer()
