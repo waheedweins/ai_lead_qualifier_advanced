@@ -50,7 +50,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allows the frontend (browser) to call this API
+# ── CORS POLICY CONFIGURATION ────────────────────────────────────────
+# Keeps your cross-origin traffic enabled for localhost and S3 environments cleanly.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],        # tighten to your S3/domain URL in production
@@ -59,6 +60,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── PUBLIC MONITORING ROUTES (DO NOT LOCK WITH AUTH0) ───────────────
+
+@app.get("/health")
+def health_check():
+    """
+    Public connection ping endpoint. 
+    Changes frontend status bar from 'Checking API Link...' to 'Backend Active'.
+    """
+    return {"status": "healthy", "service": "lead_generation_advanced"}
+
+@app.get("/")
+def root_index():
+    return {"message": "AI Lead Qualifier FastAPI Gateway Runtime Instance Operational"}
+
+# ── PROTECTED APPLICATION ROUTES ─────────────────────────────────────
 # 🛡️ Step 2: Global Security Enforcement Attached
 # This locks down all sub-routes nested inside api_router automatically.
 app.include_router(api_router, dependencies=[Security(auth_required)])
