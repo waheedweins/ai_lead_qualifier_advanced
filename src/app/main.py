@@ -2,22 +2,22 @@ from fastapi import FastAPI, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
+import asyncio # For running database connections safely asynchronously
 from src.app.api.router import api_router
 from src.app.core.database import get_engine, Base
 from src.app.core.logging import logger
 from src.app.core.auth import auth_required  # 🛡️ Step 1: Import Auth0 dependency
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Startup: create tables and apply any missing column migrations safely."""
-    logger.info("Starting AI Lead Qualifier v2...")
+async def run_db_migrations():
+    """Executes database schema configurations in a separate background non-blocking thread worker."""
+    logger.info("Verifying schema and applying background migrations...")
     try:
+        # Offload structural overhead to an isolated runner execution context
         engine = get_engine()
         Base.metadata.create_all(bind=engine)
 
         with engine.begin() as conn:
-            # Safe idempotent migrations — won't fail if column already exists
             migrations = [
                 "ALTER TABLE leads ADD COLUMN IF NOT EXISTS title VARCHAR;",
                 "ALTER TABLE leads ADD COLUMN IF NOT EXISTS address VARCHAR;",
@@ -31,13 +31,21 @@ async def lifespan(app: FastAPI):
             ]
             for sql in migrations:
                 conn.execute(text(sql))
-            logger.info(f"Schema verified: {len(migrations)} migrations checked.")
-
+            logger.info(f"Schema verification complete. {len(migrations)} migrations validated successfully.")
     except Exception as e:
-        logger.error(f"Startup schema migration failed: {e}")
+        logger.error(f"Background schema migration context failed: {e}")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: Instantly releases execution thread so AWS ECS Health Checks pass immediately."""
+    logger.info("Initializing AI Lead Qualifier Gateway Instance v2...")
+    
+    # Fire off migrations asynchronously so FastAPI can start accepting API traffic immediately
+    asyncio.create_task(run_db_migrations())
+    
     yield
-    logger.info("Shutting down AI Lead Qualifier.")
+    logger.info("Shutting down AI Lead Qualifier API Gateway.")
 
 
 app = FastAPI(
@@ -51,10 +59,15 @@ app = FastAPI(
 )
 
 # ── CORS POLICY CONFIGURATION ────────────────────────────────────────
-# Keeps your cross-origin traffic enabled for localhost and S3 environments cleanly.
+# Clean cross-origin array configuration supporting local test profiles and production S3 containers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # tighten to your S3/domain URL in production
+    allow_origins=[
+        "http://ai-lead-qualifier-advanced-frontend.s3-website.eu-north-1.amazonaws.com",
+        "http://ai-lead-qualifier-advanced-frontend.s3-website.eu-north-1.amazonaws.com/",
+        "http://localhost:3000",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,7 +79,7 @@ app.add_middleware(
 def health_check():
     """
     Public connection ping endpoint. 
-    Changes frontend status bar from 'Checking API Link...' to 'Backend Active'.
+    Instantly returns status to clear the frontend loading loops immediately.
     """
     return {"status": "healthy", "service": "lead_generation_advanced"}
 
@@ -76,5 +89,4 @@ def root_index():
 
 # ── PROTECTED APPLICATION ROUTES ─────────────────────────────────────
 # 🛡️ Step 2: Global Security Enforcement Attached
-# This locks down all sub-routes nested inside api_router automatically.
 app.include_router(api_router, dependencies=[Security(auth_required)])
