@@ -80,6 +80,13 @@ def mark_lead_failed(db: Session, lead: Lead) -> Lead:
     return lead
 
 
+def clear_all_leads(db: Session) -> int:
+    """Delete every lead (and cascaded agent_runs). Returns count of rows deleted."""
+    num_deleted = db.query(Lead).delete()
+    db.commit()
+    return num_deleted
+
+
 def get_lead_stats(db: Session) -> dict:
     total = db.query(func.count(Lead.id)).scalar() or 0
     hot = db.query(func.count(Lead.id)).filter(Lead.ai_score >= 50).scalar() or 0
