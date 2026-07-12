@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from src.app.crud.lead import (
     create_lead, get_lead_by_email, get_leads,
     get_lead_by_id, update_lead_score, update_lead_enrichment,
-    get_lead_stats, mark_lead_failed,
+    get_lead_stats, mark_lead_failed, clear_all_leads,
 )
 from src.app.schemas.lead import LeadCreate
 from src.app.services.ai_service import AIService
@@ -24,6 +24,9 @@ class LeadService:
 
     def stats(self) -> dict:
         return get_lead_stats(self.db)
+
+    def clear_all_leads(self) -> int:
+        return clear_all_leads(self.db)
 
     def create(self, lead: LeadCreate):
         """
