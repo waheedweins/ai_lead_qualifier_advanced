@@ -96,7 +96,7 @@ class Settings(BaseSettings):
             self.AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN") or "dev-jtsob5hrzmyn2s2t.us.auth0.com"
             
         if not self.AUTH0_AUDIENCE or str(self.AUTH0_AUDIENCE).strip() in ("", "None"):
-            self.AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE") or "https://dev-jtsob5hrzmyn2s2t.us.auth0.com/api/v2/"
+            self.AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE") or "https://api.ai-lead-qualifier.internal"
 
         logger.info(f"System settings loaded for project: {self.PROJECT_NAME}")
         if self.AUTH0_DOMAIN and str(self.AUTH0_DOMAIN).strip() != "None":
@@ -107,3 +107,6 @@ class Settings(BaseSettings):
 
 # Instantiate global workspace configurations settings singleton
 settings = Settings()
+
+
+
