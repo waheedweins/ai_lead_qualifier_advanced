@@ -22,10 +22,16 @@ class Settings(BaseSettings):
     
     # Core API Keys and Routing Tolerances
     GEMINI_API_KEY: str | None = None
-    APIFY_API_KEY: str | None = None
+    APIFY_API_TOKEN: str | None = None
     APOLLO_API_KEY: str | None = None
     TAVILY_API_KEY: str | None = None
-    
+
+    # Outreach Channel Credentials
+    SENDGRID_API_KEY: str | None = None
+    EMAIL_FROM: str | None = None
+    WHATSAPP_TOKEN: str | None = None
+    WHATSAPP_PHONE_ID: str | None = None
+
     # Auth0 Security Parameters
     AUTH0_DOMAIN: str | None = None
     AUTH0_AUDIENCE: str | None = None
@@ -49,9 +55,13 @@ class Settings(BaseSettings):
         if aws_secrets:
             data["DATABASE_URL"] = aws_secrets.get("DATABASE_URL")
             data["GEMINI_API_KEY"] = aws_secrets.get("GEMINI_API_KEY")
-            data["APIFY_API_KEY"] = aws_secrets.get("APIFY_API_KEY")
+            data["APIFY_API_TOKEN"] = aws_secrets.get("APIFY_API_TOKEN")
             data["APOLLO_API_KEY"] = aws_secrets.get("APOLLO_API_KEY")
             data["TAVILY_API_KEY"] = aws_secrets.get("TAVILY_API_KEY")
+            data["SENDGRID_API_KEY"] = aws_secrets.get("SENDGRID_API_KEY")
+            data["EMAIL_FROM"] = aws_secrets.get("EMAIL_FROM")
+            data["WHATSAPP_TOKEN"] = aws_secrets.get("WHATSAPP_TOKEN")
+            data["WHATSAPP_PHONE_ID"] = aws_secrets.get("WHATSAPP_PHONE_ID")
             data["AUTH0_DOMAIN"] = aws_secrets.get("AUTH0_DOMAIN")
             data["AUTH0_AUDIENCE"] = aws_secrets.get("AUTH0_AUDIENCE")
             
@@ -66,12 +76,20 @@ class Settings(BaseSettings):
             self.DATABASE_URL = os.getenv("DATABASE_URL")
         if not self.GEMINI_API_KEY:
             self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-        if not self.APIFY_API_KEY:
-            self.APIFY_API_KEY = os.getenv("APIFY_API_KEY")
+        if not self.APIFY_API_TOKEN:
+            self.APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
         if not self.APOLLO_API_KEY:
             self.APOLLO_API_KEY = os.getenv("APOLLO_API_KEY")
         if not self.TAVILY_API_KEY:
             self.TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+        if not self.SENDGRID_API_KEY:
+            self.SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+        if not self.EMAIL_FROM:
+            self.EMAIL_FROM = os.getenv("EMAIL_FROM")
+        if not self.WHATSAPP_TOKEN:
+            self.WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
+        if not self.WHATSAPP_PHONE_ID:
+            self.WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
             
         # 🛡️ Robust Auth0 Fallbacks (Cleans up spaces and "None" strings)
         if not self.AUTH0_DOMAIN or str(self.AUTH0_DOMAIN).strip() in ("", "None"):
