@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Security
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
@@ -6,7 +6,6 @@ import asyncio # For running database connections safely asynchronously
 from src.app.api.router import api_router
 from src.app.core.database import get_engine, Base
 from src.app.core.logging import logger
-from src.app.core.auth import auth_required  # 🛡️ Step 1: Import Auth0 dependency
 
 
 async def run_db_migrations():
@@ -87,6 +86,10 @@ def health_check():
 def root_index():
     return {"message": "AI Lead Qualifier FastAPI Gateway Runtime Instance Operational"}
 
-# ── PROTECTED APPLICATION ROUTES ─────────────────────────────────────
-# 🛡️ Step 2: Global Security Enforcement Attached
-app.include_router(api_router, dependencies=[Security(auth_required)])
+# ── APPLICATION ROUTES ────────────────────────────────────────────────
+# Auth is enforced per-route (see lead_routes.py / scrape_routes.py), not
+# blanket here — this router previously carried a global Security(auth_required)
+# dependency, which locked down routes documented as public (GET /leads,
+# /leads/stats, /leads/{id}, and the inner /health/) and made the Docker
+# HEALTHCHECK target require a JWT it can't supply. See reference doc §4.
+app.include_router(api_router)
