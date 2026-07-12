@@ -1,6 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from src.app.workers.scraping_worker import run_scraping_job
 from src.app.workers.lead_processor import process_leads_batch
+from src.app.core.auth import auth_required  # 🔒 These routes trigger paid API calls
 import logging
 
 logger = logging.getLogger("lead-engine")
@@ -12,9 +13,11 @@ def scrape(
     query: str,
     background_tasks: BackgroundTasks,
     source: str = "google_maps",
+    token_data: dict = Depends(auth_required),
 ):
     """
     Start a background scraping job.
+    🔒 SECURED: Requires a valid Auth0 Bearer Token (triggers billed Apify/Apollo calls).
 
     - **query**: search term e.g. `solar panel installers lahore`
     - **source**: `google_maps` | `apollo` | `all`
@@ -32,9 +35,10 @@ def scrape(
 
 
 @router.post("/process")
-def process_all(background_tasks: BackgroundTasks):
+def process_all(background_tasks: BackgroundTasks, token_data: dict = Depends(auth_required)):
     """
     Manually trigger scoring + outreach for all unprocessed leads.
+    🔒 SECURED: Requires a valid Auth0 Bearer Token.
     Runs in the background.
     """
     logger.info("Manual process_all triggered")
@@ -47,9 +51,11 @@ def run_full_pipeline(
     query: str,
     background_tasks: BackgroundTasks,
     source: str = "all",
+    token_data: dict = Depends(auth_required),
 ):
     """
     One-shot: scrape + score + outreach in a single call.
+    🔒 SECURED: Requires a valid Auth0 Bearer Token.
     Runs the entire pipeline end-to-end in the background.
     """
     if not query or not query.strip():
